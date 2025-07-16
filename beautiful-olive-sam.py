@@ -39,7 +39,7 @@ for r in range(0, numberOfThings): # :)
 # print(positiveThings)
 
 while True:
-    #time.sleep(6000)
-    time.sleep(6)
+    time.sleep(6000)
+    #time.sleep(6)
     sayPositiveThings()
 
