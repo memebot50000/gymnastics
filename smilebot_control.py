@@ -5,22 +5,15 @@ from gpiozero import Motor
 import eventlet
 import logging
 
-# Enable eventlet monkey patching for better async with gpiozero + flask-socketio
 eventlet.monkey_patch()
 
 app = Flask(__name__)
-
-# Enable SocketIO logging for debugging protocol issues
 socketio = SocketIO(app, logger=True, engineio_logger=True)
-
-# Configure Flask app logger to show debug logs
 logging.basicConfig(level=logging.DEBUG)
 
-# Define motors for your GPIO configuration
 right_motor = Motor(forward=17, backward=27, enable=12)
 left_motor = Motor(forward=23, backward=22, enable=13)
 
-# Inline HTML with debugging info and joystick
 HTML = """
 <!DOCTYPE html>
 <html>
@@ -30,10 +23,28 @@ HTML = """
     <script src="https://yoannmoinet.github.io/nipplejs/dist/nipplejs.min.js"></script>
     <style>
         body { background:#181818; color:#fff; text-align:center; font-family:sans-serif; }
-        #joystick { width:220px; height:220px; margin:40px auto; background:#282828; border-radius:10px; }
-        #status { margin-top: 10px; font-size: 14px; color: #6f6; }
-        #debug { margin-top:20px; text-align:left; max-width:600px; margin-left:auto; margin-right:auto;
-                 background:#222; padding:10px; font-family: monospace; height:120px; overflow:auto; border-radius:5px; }
+        #joystick {
+            width:220px;
+            height:220px;
+            margin:40px auto;
+            background:#222f4f;
+            border-radius:10px;
+            position: relative;
+        }
+        #status { margin-top: 10px; font-size: 14px; color: #52aaff; }
+        #debug {
+            margin-top:20px;
+            text-align:left;
+            max-width:600px;
+            margin-left:auto;
+            margin-right:auto;
+            background:#1a2338;
+            padding:10px;
+            font-family: monospace;
+            height:120px;
+            overflow:auto;
+            border-radius:5px;
+        }
     </style>
 </head>
 <body>
@@ -72,7 +83,7 @@ HTML = """
             mode: "static",
             position: { left: "50%", top: "50%" },
             size: 180,
-            color: "#40f040"
+            color: "#349eff"
         };
 
         var joystick = nipplejs.create(options);
@@ -111,7 +122,6 @@ def handle_joystick(data):
         x = float(data.get('x', 0))
         y = float(data.get('y', 0))
 
-        # Mixing for tank drive: left  = y + x, right = y - x
         left = max(min(y + x, 1), -1)
         right = max(min(y - x, 1), -1)
 
@@ -127,6 +137,4 @@ def default_error_handler(e):
     app.logger.error(f"SocketIO error: {e}", exc_info=True)
 
 if __name__ == '__main__':
-    # Run with debug=True if you want auto-reload and Flask debugger (not recommended with eventlet)
-    # Use eventlet for asynchronous socket handling
     socketio.run(app, host='0.0.0.0', port=5000)
