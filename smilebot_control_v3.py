@@ -1,9 +1,9 @@
 import os
 import time
 import threading
-from flask import Flask, Response, render_template_string, request
+import subprocess
+from flask import Flask, render_template_string, request
 from gpiozero import Motor
-import pygame  # <--- add pygame import
 
 app = Flask(__name__)
 
@@ -30,30 +30,6 @@ motors_armed_lock = threading.Lock()
 # Global running flag for threads
 running = True
 
-# --- Setup for positive speech ---
-numberOfThings = 3
-positiveThings = []
-for r in range(0, numberOfThings):
-    positiveThings.append("thing" + str(r) + ".mp3")  # Your mp3 filenames here
-
-def sayPositiveThings():
-    """Play a random positive mp3 sound."""
-    try:
-        sound = pygame.mixer.Sound(random.choice(positiveThings))
-        sound.play()
-        # Wait for the sound to finish playing
-        while pygame.mixer.get_busy():
-            pygame.time.wait(100)
-    except Exception as e:
-        print(f"Error playing sound: {e}")
-
-def positive_speech_loop():
-    """Loop that says positive things every 10 minutes."""
-    while running:
-        # Wait 10 minutes (600 seconds)
-        time.sleep(600)
-        sayPositiveThings()
-
 # --- Utility Functions ---
 
 def cleanup():
@@ -68,14 +44,10 @@ def cleanup():
         right_motor.stop()
     except Exception:
         pass
-    # Quit pygame mixer on cleanup
-    try:
-        pygame.mixer.quit()
-    except Exception:
-        pass
     print("Cleanup complete")
 
 # --- Threads ---
+
 def motor_control_loop():
     global current_throttle, current_steering, motors_armed
     while running:
@@ -86,6 +58,7 @@ def motor_control_loop():
             right_motor.stop()
             time.sleep(MOTOR_UPDATE_INTERVAL)
             continue
+
         # Map joystick values to motor speeds
         throttle = current_throttle  # -1 to 1
         steering = current_steering  # -1 to 1
@@ -93,21 +66,25 @@ def motor_control_loop():
         right_speed = throttle - steering
         left_speed = max(-1, min(1, left_speed))
         right_speed = max(-1, min(1, right_speed))
+
         if left_speed > 0:
             left_motor.forward(left_speed)
         elif left_speed < 0:
             left_motor.backward(-left_speed)
         else:
             left_motor.stop()
+
         if right_speed > 0:
             right_motor.forward(right_speed)
         elif right_speed < 0:
             right_motor.backward(-right_speed)
         else:
             right_motor.stop()
+
         time.sleep(MOTOR_UPDATE_INTERVAL)
 
 # --- Flask Endpoints ---
+
 @app.route('/')
 def index():
     return render_template_string('''
@@ -240,7 +217,7 @@ def index():
                     var norm = dist / 50;
                     var x = Math.cos(angle) * norm;
                     var y = Math.sin(angle) * norm;
-                    sendJoystick(-y, x);  // throttle inverted Y, steering X
+                    sendJoystick(-y, x);
                 }
             });
             joystick.on('end', function() {
@@ -295,20 +272,22 @@ def shutdown():
 
 if __name__ == '__main__':
     try:
-        # Initialize pygame mixer once before threads start
-        pygame.mixer.init()
-
-        print("Initializing motors and starting motor control and positive speech loops")
+        print("Initializing motors and starting motor control loop")
 
         motor_thread = threading.Thread(target=motor_control_loop, daemon=True)
         motor_thread.start()
 
-        positive_speech_thread = threading.Thread(target=positive_speech_loop, daemon=True)
-        positive_speech_thread.start()
+        # Start the external script asynchronously with subprocess
+        proc = subprocess.Popen(["python3", "beautiful-olive-sam.py"])
+        print("Motor control thread and beautiful-olive-sam.py started")
 
-        print("Threads started, starting Flask app")
         app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False, threaded=True)
+
     except KeyboardInterrupt:
         print("\nProgram interrupted by user. Exiting...")
     finally:
         cleanup()
+        # Optionally, terminate the subprocess if still running
+        if proc and proc.poll() is None:
+            proc.terminate()
+            proc.wait()
