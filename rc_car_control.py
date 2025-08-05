@@ -2,7 +2,7 @@ from gpiozero import Motor
 import time
 
 right_motor = Motor(forward=17, backward=27, enable=12)
-left_motor = Motor(forward=23, backward=22, enable=13)
+left_motor = Motor(forward=22, backward=23, enable=13)
 def stop():
     left_motor.stop()
     right_motor.stop()
